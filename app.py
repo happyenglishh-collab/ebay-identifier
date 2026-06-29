@@ -148,9 +148,13 @@ def encode_image(image_bytes: bytes, mime_type: str) -> str:
     return base64.standard_b64encode(image_bytes).decode("utf-8")
 
 
-def analyze_image(image_bytes: bytes, mime_type: str) -> dict:
+def analyze_image(image_bytes: bytes, mime_type: str, manual_notes: str = "") -> dict:
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
     b64 = encode_image(image_bytes, mime_type)
+
+    prompt = ANALYZE_PROMPT
+    if manual_notes.strip():
+        prompt += f"\n\nADDITIONAL INFO FROM USER (markings/text too faint to photograph):\n{manual_notes.strip()}\nUse this to refine brand_or_maker, model_name, era, and materials."
 
     response = client.messages.create(
         model="claude-opus-4-8",
@@ -168,7 +172,7 @@ def analyze_image(image_bytes: bytes, mime_type: str) -> dict:
                             "data": b64,
                         },
                     },
-                    {"type": "text", "text": ANALYZE_PROMPT},
+                    {"type": "text", "text": prompt},
                 ],
             }
         ],
@@ -317,10 +321,19 @@ def main():
             mime_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(ext, "image/jpeg")
 
     if image_bytes:
+        with st.expander("✏️ Add markings or text (optional)"):
+            st.markdown('<div style="font-size:0.78rem;color:#888;margin-bottom:6px;">Type anything you can read on the item that may not show clearly in the photo — backstamp, etched signature, pattern name, country of origin, model number, hallmarks, etc.</div>', unsafe_allow_html=True)
+            manual_notes = st.text_area(
+                "Markings / text on item",
+                placeholder="e.g. 'Made in England • Johnson Brothers' or 'Waterford Ireland' etched on base, or '925 Sterling' stamp inside band",
+                height=100,
+                label_visibility="collapsed",
+            )
+
         if st.button("🔍 Analyze Item", type="primary"):
             with st.spinner("Analyzing with AI..."):
                 try:
-                    result = analyze_image(image_bytes, mime_type)
+                    result = analyze_image(image_bytes, mime_type, manual_notes)
                     st.divider()
                     render_results(result)
                 except json.JSONDecodeError as e:
