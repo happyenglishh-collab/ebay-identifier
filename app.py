@@ -335,12 +335,14 @@ def main():
         if uploaded_front:
             image_bytes = uploaded_front.getvalue()
             mime_type = mime_from_ext(uploaded_front.name)
+            st.image(uploaded_front, use_container_width=True)
 
         st.markdown('<div style="font-size:0.78rem;color:#888;font-weight:600;margin:10px 0 4px;">BACK <span style="color:#555;font-weight:400;">(optional — for maker\'s mark)</span></div>', unsafe_allow_html=True)
         uploaded_back = st.file_uploader("Back photo", type=["jpg", "jpeg", "png", "webp"], label_visibility="collapsed", key="up_back")
         if uploaded_back:
             back_bytes = uploaded_back.getvalue()
             back_mime = mime_from_ext(uploaded_back.name)
+            st.image(uploaded_back, use_container_width=True)
 
     if image_bytes:
         with st.expander("📐 Item size (optional — improves pricing)"):
