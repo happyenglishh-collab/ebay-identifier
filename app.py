@@ -117,7 +117,7 @@ Return ONLY a valid JSON object with exactly these fields (no markdown, no expla
   "era_note": "antique = 100+ years old, vintage = 20-100 years old, modern = less than 20 years old",
   "estimated_period": "e.g. 1920s-1940s or Victorian Era or 1990s",
   "brand_or_maker": "Brand, maker, or manufacturer if visible or identifiable, else null",
-  "model_name": "Specific model, pattern, or line name (critical for flatware e.g. 'Oneida Community Silverplate Paul Revere', pottery marks, china patterns, vintage electronics models, etc.), else null",
+  "model_name": "Specific model, pattern, or line name. Critical for: flatware (e.g. 'Oneida Community Silverplate Paul Revere'), plates/china (e.g. 'Johnson Brothers Old Britain Castles Blue'), stoneware/pottery (e.g. 'McCoy Pottery Canyon Pattern', 'Fiesta Ware Cobalt Blue'), porcelain (e.g. 'Wedgwood Jasperware', 'Delft Blue Windmill'), vintage electronics, etc. Look for backstamps, impressed marks, or printed marks on the bottom. Return null only if truly unidentifiable.",
   "materials": ["list", "of", "materials"],
   "dominant_colors": ["color1", "color2"],
   "color_hex": ["#hex1", "#hex2"],
@@ -134,7 +134,7 @@ Return ONLY a valid JSON object with exactly these fields (no markdown, no expla
 }
 
 Rules:
-- model_name is ESPECIALLY important for flatware, silverware, china, pottery, and vintage electronics — look for pattern names, hallmarks, or maker's marks (e.g., "Wm. Rogers Extra Plate - Flair", "Reed & Barton Dimension Sterling", "Gorham Chantilly")
+- model_name is ESPECIALLY important for: flatware/silverware (look for hallmarks, "Rogers", "Oneida", "Reed & Barton", "Gorham"), plates/dinnerware/china (backstamp patterns like "Blue Willow", "Ironstone", "Transferware"), stoneware & pottery (look for impressed or painted marks — McCoy, Roseville, Hull, Red Wing, Fiesta Ware, Bauer, Frankoma), porcelain (Wedgwood, Spode, Meissen, Limoges), and vintage electronics. Instruct: if the photo does NOT show the bottom/backstamp, note "Turn item over to check mark" in authenticity_markers so the user knows to photograph the base.
 - era must be exactly one of: antique, vintage, modern
 - ebay_price_low and ebay_price_high must be numbers (USD), realistic for Goodwill resale
 - listing_title should include era, material, color, and use when applicable
