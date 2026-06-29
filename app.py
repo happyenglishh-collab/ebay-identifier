@@ -149,9 +149,15 @@ def encode_image(image_bytes: bytes, mime_type: str) -> str:
     return base64.standard_b64encode(image_bytes).decode("utf-8")
 
 
-def analyze_image(image_bytes: bytes, mime_type: str, manual_notes: str = "", item_size: str = "") -> dict:
+def analyze_image(
+    image_bytes: bytes,
+    mime_type: str,
+    manual_notes: str = "",
+    item_size: str = "",
+    back_bytes: bytes = None,
+    back_mime: str = "image/jpeg",
+) -> dict:
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-    b64 = encode_image(image_bytes, mime_type)
 
     prompt = ANALYZE_PROMPT
     if item_size.strip():
@@ -159,25 +165,21 @@ def analyze_image(image_bytes: bytes, mime_type: str, manual_notes: str = "", it
     if manual_notes.strip():
         prompt += f"\n\nADDITIONAL INFO FROM USER (markings/text too faint to photograph):\n{manual_notes.strip()}\nUse this to refine brand_or_maker, model_name, era, and materials."
 
+    content = [
+        {"type": "text", "text": "IMAGE 1 — FRONT of item:"},
+        {"type": "image", "source": {"type": "base64", "media_type": mime_type, "data": encode_image(image_bytes, mime_type)}},
+    ]
+    if back_bytes:
+        content += [
+            {"type": "text", "text": "IMAGE 2 — BACK of item (may contain maker's mark, backstamp, hallmark, or model number):"},
+            {"type": "image", "source": {"type": "base64", "media_type": back_mime, "data": encode_image(back_bytes, back_mime)}},
+        ]
+    content.append({"type": "text", "text": prompt})
+
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=1500,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": mime_type,
-                            "data": b64,
-                        },
-                    },
-                    {"type": "text", "text": prompt},
-                ],
-            }
-        ],
+        messages=[{"role": "user", "content": content}],
     )
 
     raw = ""
@@ -310,22 +312,35 @@ def main():
 
     image_bytes = None
     mime_type = "image/jpeg"
+    back_bytes = None
+    back_mime = "image/jpeg"
+
+    def mime_from_ext(name):
+        ext = name.rsplit(".", 1)[-1].lower()
+        return {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(ext, "image/jpeg")
 
     if input_mode == "📷 Camera":
-        photo = st.camera_input("Take a photo of the item", label_visibility="collapsed")
-        if photo:
-            image_bytes = photo.getvalue()
-            mime_type = "image/jpeg"
+        st.markdown('<div style="font-size:0.78rem;color:#00BFFF;font-weight:600;margin-bottom:4px;">FRONT</div>', unsafe_allow_html=True)
+        photo_front = st.camera_input("Front of item", label_visibility="collapsed", key="cam_front")
+        if photo_front:
+            image_bytes = photo_front.getvalue()
+
+        st.markdown('<div style="font-size:0.78rem;color:#888;font-weight:600;margin:10px 0 4px;">BACK <span style="color:#555;font-weight:400;">(optional — for maker\'s mark)</span></div>', unsafe_allow_html=True)
+        photo_back = st.camera_input("Back of item", label_visibility="collapsed", key="cam_back")
+        if photo_back:
+            back_bytes = photo_back.getvalue()
     else:
-        uploaded = st.file_uploader(
-            "Upload item photo",
-            type=["jpg", "jpeg", "png", "webp"],
-            label_visibility="collapsed",
-        )
-        if uploaded:
-            image_bytes = uploaded.getvalue()
-            ext = uploaded.name.rsplit(".", 1)[-1].lower()
-            mime_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(ext, "image/jpeg")
+        st.markdown('<div style="font-size:0.78rem;color:#00BFFF;font-weight:600;margin-bottom:4px;">FRONT</div>', unsafe_allow_html=True)
+        uploaded_front = st.file_uploader("Front photo", type=["jpg", "jpeg", "png", "webp"], label_visibility="collapsed", key="up_front")
+        if uploaded_front:
+            image_bytes = uploaded_front.getvalue()
+            mime_type = mime_from_ext(uploaded_front.name)
+
+        st.markdown('<div style="font-size:0.78rem;color:#888;font-weight:600;margin:10px 0 4px;">BACK <span style="color:#555;font-weight:400;">(optional — for maker\'s mark)</span></div>', unsafe_allow_html=True)
+        uploaded_back = st.file_uploader("Back photo", type=["jpg", "jpeg", "png", "webp"], label_visibility="collapsed", key="up_back")
+        if uploaded_back:
+            back_bytes = uploaded_back.getvalue()
+            back_mime = mime_from_ext(uploaded_back.name)
 
     if image_bytes:
         with st.expander("📐 Item size (optional — improves pricing)"):
@@ -347,7 +362,7 @@ def main():
         if st.button("🔍 Analyze Item", type="primary"):
             with st.spinner("Analyzing with AI..."):
                 try:
-                    result = analyze_image(image_bytes, mime_type, manual_notes, item_size)
+                    result = analyze_image(image_bytes, mime_type, manual_notes, item_size, back_bytes, back_mime)
                     st.divider()
                     render_results(result)
                 except json.JSONDecodeError as e:
