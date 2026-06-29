@@ -128,6 +128,7 @@ Return ONLY a valid JSON object with exactly these fields (no markdown, no expla
   "listing_title": "Suggested eBay listing title (max 80 chars, keyword-rich)",
   "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5", "keyword6", "keyword7", "keyword8"],
   "selling_tips": ["tip1", "tip2", "tip3"],
+  "suggested_size": "Your best estimate of the item's size/dimensions if not provided by the user (e.g. '10 inch dinner plate', '12 oz goblet', '8 inch bowl') — important for pricing accuracy",
   "notable_features": ["feature1", "feature2"],
   "authenticity_markers": "What to check to verify authenticity or age, or null if not applicable",
   "confidence": "high" or "medium" or "low"
@@ -148,18 +149,19 @@ def encode_image(image_bytes: bytes, mime_type: str) -> str:
     return base64.standard_b64encode(image_bytes).decode("utf-8")
 
 
-def analyze_image(image_bytes: bytes, mime_type: str, manual_notes: str = "") -> dict:
+def analyze_image(image_bytes: bytes, mime_type: str, manual_notes: str = "", item_size: str = "") -> dict:
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
     b64 = encode_image(image_bytes, mime_type)
 
     prompt = ANALYZE_PROMPT
+    if item_size.strip():
+        prompt += f"\n\nITEM SIZE PROVIDED BY USER: {item_size.strip()}\nUse this size when estimating the eBay price range — size significantly affects value for plates, bowls, platters, and glassware."
     if manual_notes.strip():
         prompt += f"\n\nADDITIONAL INFO FROM USER (markings/text too faint to photograph):\n{manual_notes.strip()}\nUse this to refine brand_or_maker, model_name, era, and materials."
 
     response = client.messages.create(
-        model="claude-opus-4-8",
+        model="claude-sonnet-4-6",
         max_tokens=1500,
-        thinking={"type": "adaptive"},
         messages=[
             {
                 "role": "user",
@@ -258,6 +260,11 @@ def render_results(data: dict):
             color_html += f'<span class="color-swatch" style="background:{hex_val};"></span><span style="font-size:0.82rem;margin-right:12px;">{c}</span>'
         st.markdown(color_html, unsafe_allow_html=True)
 
+    suggested_size = data.get("suggested_size")
+    if suggested_size:
+        st.markdown('<div class="section-header">Estimated Size</div>', unsafe_allow_html=True)
+        st.markdown(f'<span style="font-size:0.9rem;">📐 {suggested_size}</span>', unsafe_allow_html=True)
+
     features = data.get("notable_features", [])
     if features:
         st.markdown('<div class="section-header">Notable Features</div>', unsafe_allow_html=True)
@@ -321,6 +328,13 @@ def main():
             mime_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(ext, "image/jpeg")
 
     if image_bytes:
+        with st.expander("📐 Item size (optional — improves pricing)"):
+            st.markdown('<div style="font-size:0.78rem;color:#888;margin-bottom:6px;">Measure or estimate the size. Affects price for plates, bowls, platters, glassware, and more.</div>', unsafe_allow_html=True)
+            size_presets = ["", "Demitasse / espresso (3–4\")", "Bread & butter plate (6\")", "Salad plate (7–8\")", "Luncheon plate (9\")", "Dinner plate (10–11\")", "Charger / service plate (12–13\")", "Platter / oval serving (14\"+)", "Juice glass (4–6 oz)", "Rocks / lowball glass (6–8 oz)", "Highball / tumbler (10–14 oz)", "Wine glass (8–12 oz)", "Goblet (12–16 oz)", "Decanter / pitcher (varies)", "Other (type below)"]
+            size_choice = st.selectbox("Common sizes", size_presets, label_visibility="collapsed")
+            size_custom = st.text_input("Or type exact size / dimensions", placeholder='e.g. "10.5 inch diameter" or "9 oz goblet"', label_visibility="collapsed")
+            item_size = size_custom.strip() if size_custom.strip() else (size_choice if size_choice else "")
+
         with st.expander("✏️ Add markings or text (optional)"):
             st.markdown('<div style="font-size:0.78rem;color:#888;margin-bottom:6px;">Type anything you can read on the item that may not show clearly in the photo — backstamp, etched signature, pattern name, country of origin, model number, hallmarks, etc.</div>', unsafe_allow_html=True)
             manual_notes = st.text_area(
@@ -333,7 +347,7 @@ def main():
         if st.button("🔍 Analyze Item", type="primary"):
             with st.spinner("Analyzing with AI..."):
                 try:
-                    result = analyze_image(image_bytes, mime_type, manual_notes)
+                    result = analyze_image(image_bytes, mime_type, manual_notes, item_size)
                     st.divider()
                     render_results(result)
                 except json.JSONDecodeError as e:
