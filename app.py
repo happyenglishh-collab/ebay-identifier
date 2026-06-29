@@ -13,7 +13,7 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-  .block-container { padding: 0.5rem 0.75rem 1rem; max-width: 100%; }
+  .block-container { padding: 3.5rem 0.75rem 1rem; max-width: 100%; }
   h1 { font-size: 1.5rem !important; }
   h2 { font-size: 1.15rem !important; }
   h3 { font-size: 1rem !important; }
