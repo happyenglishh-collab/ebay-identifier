@@ -296,6 +296,40 @@ def render_results(data: dict):
         st.markdown(f'<div class="warning-box">🔎 {auth}</div>', unsafe_allow_html=True)
 
 
+def render_correction_form(data: dict):
+    with st.expander("✏️ Correct any details"):
+        st.markdown('<div style="font-size:0.78rem;color:#888;margin-bottom:8px;">If the AI got something wrong (e.g. wrong brand), fix it here — your changes are reflected immediately.</div>', unsafe_allow_html=True)
+
+        new_item_name = st.text_input("Item name", value=data.get("item_name", ""))
+        new_category = st.text_input("Category", value=data.get("category", ""))
+
+        col1, col2 = st.columns(2)
+        new_brand = col1.text_input("Brand / Maker", value=data.get("brand_or_maker") or "")
+        new_model = col2.text_input("Pattern / Model", value=data.get("model_name") or "")
+
+        era_options = ["antique", "vintage", "modern"]
+        current_era = (data.get("era") or "modern").lower()
+        new_era = st.segmented_control("Era", era_options, default=current_era if current_era in era_options else "modern")
+
+        col3, col4 = st.columns(2)
+        new_price_low = col3.number_input("Price low ($)", value=float(data.get("ebay_price_low") or 0), min_value=0.0, step=1.0)
+        new_price_high = col4.number_input("Price high ($)", value=float(data.get("ebay_price_high") or 0), min_value=0.0, step=1.0)
+
+        new_condition_notes = st.text_area("Condition notes", value=data.get("condition_notes", ""), height=70)
+
+        if st.button("✅ Apply Corrections"):
+            data["item_name"] = new_item_name
+            data["category"] = new_category
+            data["brand_or_maker"] = new_brand or None
+            data["model_name"] = new_model or None
+            data["era"] = new_era
+            data["ebay_price_low"] = new_price_low
+            data["ebay_price_high"] = new_price_high
+            data["condition_notes"] = new_condition_notes
+            st.session_state.result = data
+            st.rerun()
+
+
 def main():
     st.markdown(
         '<h1 style="margin-bottom:0;">🔍 <span style="color:#FFEB3B;">eBay</span> <span style="color:#00BFFF;">Item</span> Identifier</h1>',
@@ -364,13 +398,16 @@ def main():
         if st.button("🔍 Analyze Item", type="primary"):
             with st.spinner("Analyzing with AI..."):
                 try:
-                    result = analyze_image(image_bytes, mime_type, manual_notes, item_size, back_bytes, back_mime)
-                    st.divider()
-                    render_results(result)
+                    st.session_state.result = analyze_image(image_bytes, mime_type, manual_notes, item_size, back_bytes, back_mime)
                 except json.JSONDecodeError as e:
                     st.error(f"Could not parse AI response. Try again. ({e})")
                 except Exception as e:
                     st.error(f"Analysis failed: {e}")
+
+        if st.session_state.get("result"):
+            st.divider()
+            render_results(st.session_state.result)
+            render_correction_form(st.session_state.result)
     else:
         st.markdown("""
         <div style="text-align:center;padding:24px 0;color:#555;">
