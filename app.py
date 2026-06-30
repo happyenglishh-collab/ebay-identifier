@@ -110,6 +110,8 @@ Analyze this item photo and provide a detailed assessment for eBay resale.
 
 Before pricing, use the web_search tool to look up actual current and recently-sold eBay listings (and other resale comps like WorthPoint, Etsy, or Replacements.com if useful) for this specific item, brand, and pattern/model. Search using the brand, model/pattern name, and item type you identify from the photo (e.g. "Wedgwood Jasperware vase sold price ebay" or "Fiesta Ware cobalt blue dinner plate ebay sold"). Ground your price estimate in what you actually find rather than guessing from memory. If you cannot find a clean match, search more broadly (by category, material, era) and note the lower confidence.
 
+Also use web_search to try to find a reference photo of the exact pattern/model you identified (e.g. on Replacements.com, an eBay listing, a collector reference site, or Etsy), so the user can visually compare it against their own item. Prefer direct image URLs (ending in .jpg/.jpeg/.png/.webp) when you find one, or a page URL that prominently displays the pattern.
+
 After researching, return ONLY a valid JSON object with exactly these fields (no markdown, no explanation):
 
 {
@@ -136,6 +138,9 @@ After researching, return ONLY a valid JSON object with exactly these fields (no
   "suggested_size": "Your best estimate of the item's size/dimensions if not provided by the user (e.g. '10 inch dinner plate', '12 oz goblet', '8 inch bowl') — important for pricing accuracy",
   "notable_features": ["feature1", "feature2"],
   "authenticity_markers": "What to check to verify authenticity or age, or null if not applicable",
+  "reference_image_url": "Direct URL to a photo of this exact pattern/model found via web search, for visual comparison, or null if none found",
+  "reference_source_url": "URL of the page the reference image came from (for attribution/context), or null",
+  "pattern_match_notes": "Brief note on how confident the pattern/model match is and what visual details support it, or null if no model_name was identified",
   "confidence": "high" or "medium" or "low"
 }
 
@@ -208,7 +213,7 @@ def era_badge(era: str) -> str:
     return f'<span class="era-badge {css_class}">{label}</span>'
 
 
-def render_results(data: dict):
+def render_results(data: dict, user_photo: bytes = None):
     st.markdown(f'<div class="item-title">{data.get("item_name", "Unknown Item")}</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="category-text">{data.get("category", "")}</div>', unsafe_allow_html=True)
 
@@ -256,6 +261,24 @@ def render_results(data: dict):
             st.markdown(f'<span style="font-size:0.88rem;color:#FFEB3B;font-weight:700;">🏷 {brand}</span>', unsafe_allow_html=True)
         if model_name:
             st.markdown(f'<span style="font-size:0.85rem;color:#FAFAFA;">Pattern / Model: <strong>{model_name}</strong></span>', unsafe_allow_html=True)
+
+    ref_image = data.get("reference_image_url")
+    ref_source = data.get("reference_source_url")
+    match_notes = data.get("pattern_match_notes")
+    if ref_image or match_notes:
+        st.markdown('<div class="section-header">Pattern Match Reference</div>', unsafe_allow_html=True)
+        if ref_image:
+            col_a, col_b = st.columns(2)
+            if user_photo:
+                col_a.image(user_photo, caption="Your item", use_container_width=True)
+            try:
+                col_b.image(ref_image, caption="Reference match", use_container_width=True)
+            except Exception:
+                col_b.markdown(f'<span style="font-size:0.78rem;color:#888;">Reference image could not load. <a href="{ref_image}" target="_blank">View it here</a></span>', unsafe_allow_html=True)
+            if ref_source:
+                st.markdown(f'<a href="{ref_source}" target="_blank" style="font-size:0.72rem;color:#00BFFF;">🔗 Source</a>', unsafe_allow_html=True)
+        if match_notes:
+            st.markdown(f'<div style="font-size:0.8rem;color:#CCCCCC;margin-top:4px;">{match_notes}</div>', unsafe_allow_html=True)
 
     if condition:
         st.markdown('<div class="section-header">Condition</div>', unsafe_allow_html=True)
@@ -419,6 +442,7 @@ def main():
             with st.spinner("Analyzing with AI..."):
                 try:
                     st.session_state.result = analyze_image(image_bytes, mime_type, manual_notes, item_size, back_bytes, back_mime)
+                    st.session_state.user_photo = image_bytes
                 except json.JSONDecodeError as e:
                     st.error(f"Could not parse AI response. Try again. ({e})")
                 except Exception as e:
@@ -426,7 +450,7 @@ def main():
 
         if st.session_state.get("result"):
             st.divider()
-            render_results(st.session_state.result)
+            render_results(st.session_state.result, st.session_state.get("user_photo"))
             render_correction_form(st.session_state.result)
     else:
         st.markdown("""
