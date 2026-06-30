@@ -271,10 +271,8 @@ def render_results(data: dict, user_photo: bytes = None):
             col_a, col_b = st.columns(2)
             if user_photo:
                 col_a.image(user_photo, caption="Your item", use_container_width=True)
-            try:
-                col_b.image(ref_image, caption="Reference match", use_container_width=True)
-            except Exception:
-                col_b.markdown(f'<span style="font-size:0.78rem;color:#888;">Reference image could not load. <a href="{ref_image}" target="_blank">View it here</a></span>', unsafe_allow_html=True)
+            col_b.image(ref_image, caption="Reference match", use_container_width=True)
+            col_b.markdown(f'<span style="font-size:0.7rem;color:#666;">If this doesn\'t load: <a href="{ref_image}" target="_blank">open image link</a></span>', unsafe_allow_html=True)
             if ref_source:
                 st.markdown(f'<a href="{ref_source}" target="_blank" style="font-size:0.72rem;color:#00BFFF;">🔗 Source</a>', unsafe_allow_html=True)
         if match_notes:
