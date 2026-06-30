@@ -357,10 +357,12 @@ def main():
 
     input_mode = st.segmented_control(
         "Input mode",
-        options=["📷 Camera", "📁 Upload"],
-        default="📷 Camera",
+        options=["📁 Upload", "📷 Camera"],
+        default="📁 Upload",
         label_visibility="collapsed",
     )
+    if input_mode == "📁 Upload":
+        st.markdown('<div style="font-size:0.72rem;color:#666;margin-bottom:6px;">Tap "Browse files" → "Take Photo" to use your rear camera</div>', unsafe_allow_html=True)
 
     image_bytes = None
     mime_type = "image/jpeg"
