@@ -108,7 +108,9 @@ st.markdown("""
 ANALYZE_PROMPT = """You are an expert antique dealer, vintage item appraiser, and eBay power seller with 20+ years of experience.
 Analyze this item photo and provide a detailed assessment for eBay resale.
 
-Return ONLY a valid JSON object with exactly these fields (no markdown, no explanation):
+Before pricing, use the web_search tool to look up actual current and recently-sold eBay listings (and other resale comps like WorthPoint, Etsy, or Replacements.com if useful) for this specific item, brand, and pattern/model. Search using the brand, model/pattern name, and item type you identify from the photo (e.g. "Wedgwood Jasperware vase sold price ebay" or "Fiesta Ware cobalt blue dinner plate ebay sold"). Ground your price estimate in what you actually find rather than guessing from memory. If you cannot find a clean match, search more broadly (by category, material, era) and note the lower confidence.
+
+After researching, return ONLY a valid JSON object with exactly these fields (no markdown, no explanation):
 
 {
   "item_name": "Specific descriptive name of the item",
@@ -127,6 +129,7 @@ Return ONLY a valid JSON object with exactly these fields (no markdown, no expla
   "ebay_price_low": 5,
   "ebay_price_high": 45,
   "price_basis_note": "Brief note confirming this price is per single piece, e.g. 'Per plate' or 'Per goblet — sets of 4+ sell for more per-piece as a lot'",
+  "price_sources": "Brief summary of what you found via web search that informed this price, e.g. 'Based on 3 sold listings on eBay for this pattern, $18-$32 per plate' — or 'No close match found; estimate based on similar Fiesta Ware pricing' if search was inconclusive",
   "listing_title": "Suggested eBay listing title (max 80 chars, keyword-rich)",
   "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5", "keyword6", "keyword7", "keyword8"],
   "selling_tips": ["tip1", "tip2", "tip3"],
@@ -183,7 +186,8 @@ def analyze_image(
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=1500,
+        max_tokens=4000,
+        tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}],
         messages=[{"role": "user", "content": content}],
     )
 
@@ -191,7 +195,6 @@ def analyze_image(
     for block in response.content:
         if block.type == "text":
             raw = block.text
-            break
 
     json_match = re.search(r"\{[\s\S]*\}", raw)
     if json_match:
@@ -237,6 +240,10 @@ def render_results(data: dict):
         st.markdown(f'<div style="font-size:0.78rem;color:#FFEB3B;text-align:center;margin-top:-6px;">📦 {pieces} pieces detected in photo — price above is PER PIECE, not for the whole group</div>', unsafe_allow_html=True)
     if price_basis:
         st.markdown(f'<div style="font-size:0.75rem;color:#888;text-align:center;margin-top:2px;">{price_basis}</div>', unsafe_allow_html=True)
+
+    price_sources = data.get("price_sources")
+    if price_sources:
+        st.markdown(f'<div style="font-size:0.72rem;color:#00BFFF;text-align:center;margin-top:6px;">🔎 {price_sources}</div>', unsafe_allow_html=True)
 
     brand = data.get("brand_or_maker")
     model_name = data.get("model_name")
