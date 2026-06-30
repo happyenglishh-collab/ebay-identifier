@@ -123,8 +123,10 @@ Return ONLY a valid JSON object with exactly these fields (no markdown, no expla
   "color_hex": ["#hex1", "#hex2"],
   "condition": "Excellent" or "Very Good" or "Good" or "Fair" or "Poor",
   "condition_notes": "Brief description of visible condition issues or highlights",
+  "pieces_in_photo": 1,
   "ebay_price_low": 5,
   "ebay_price_high": 45,
+  "price_basis_note": "Brief note confirming this price is per single piece, e.g. 'Per plate' or 'Per goblet — sets of 4+ sell for more per-piece as a lot'",
   "listing_title": "Suggested eBay listing title (max 80 chars, keyword-rich)",
   "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5", "keyword6", "keyword7", "keyword8"],
   "selling_tips": ["tip1", "tip2", "tip3"],
@@ -137,7 +139,10 @@ Return ONLY a valid JSON object with exactly these fields (no markdown, no expla
 Rules:
 - model_name is ESPECIALLY important for: flatware/silverware (hallmarks, Rogers, Oneida, Reed & Barton, Gorham), plates/dinnerware/china (backstamp patterns — Blue Willow, Ironstone, Transferware), stoneware & pottery (impressed/painted marks — McCoy, Roseville, Hull, Red Wing, Fiesta Ware, Bauer, Frankoma), porcelain (Wedgwood, Spode, Meissen, Limoges), crystal & glassware (Waterford, Lenox, Baccarat, Fostoria, Cambridge, Heisey, Depression Glass — lead crystal vs. crystal vs. glass distinction matters for value), toys (Hot Wheels/Matchbox model name+year on base, Fisher-Price model number, LEGO set number, Marx/Ideal/Kenner/Hasbro/Mattel markings, tin toy origin markings, action figure copyright year+maker molded into plastic, cast iron toy maker), stuffed animals (Steiff button-in-ear + chest tag = high value; Ty Beanie Baby tag generation affects value greatly — 1st/2nd gen tags worth far more; Gund, Dakin, Rushton, Hermann, Boyds Bears sewn labels; character plush — look for Disney/Warner Bros tags), and vintage electronics. If the photo does NOT show the base/tag/label, note it in authenticity_markers with specific instructions (e.g. "Check button in ear and chest tag" for bears, "Turn over — model number molded into base" for toys, "Photograph foot rim for acid-etched signature" for crystal).
 - era must be exactly one of: antique, vintage, modern
-- ebay_price_low and ebay_price_high must be numbers (USD), realistic for Goodwill resale
+- pieces_in_photo: count the actual number of individual items visible in the photo (e.g. a stack of 4 plates = 4, a single goblet = 1)
+- ebay_price_low and ebay_price_high MUST be the price for ONE SINGLE PIECE, regardless of how many pieces are in the photo — never the price for the whole group/set/lot
+- When mentally referencing comparable eBay sold listings, many results are for lots/sets (e.g. "set of 8 forks $60" or "4 wine glasses $40") — divide by the number of pieces in that comparable listing before using it as a reference point. Do not anchor on a lot's total price.
+- If pieces_in_photo > 1, still report ebay_price_low/high as the PER-PIECE range, and use price_basis_note to flag that selling as a complete set/lot may fetch a different total than per-piece price times quantity
 - listing_title should include era, material, color, and use when applicable
 - keywords should be actual eBay search terms buyers would use
 - selling_tips should be actionable advice (photography angles, timing, bundling, etc.)
@@ -220,12 +225,18 @@ def render_results(data: dict):
 
     price_low = data.get("ebay_price_low", 0)
     price_high = data.get("ebay_price_high", 0)
+    pieces = data.get("pieces_in_photo", 1)
+    price_basis = data.get("price_basis_note", "")
     st.markdown(f"""
     <div class="price-box">
-      <div class="price-label">Estimated eBay Price Range</div>
+      <div class="price-label">Estimated eBay Price — Per Piece</div>
       <div class="price-value">${price_low} – ${price_high}</div>
     </div>
     """, unsafe_allow_html=True)
+    if pieces and pieces > 1:
+        st.markdown(f'<div style="font-size:0.78rem;color:#FFEB3B;text-align:center;margin-top:-6px;">📦 {pieces} pieces detected in photo — price above is PER PIECE, not for the whole group</div>', unsafe_allow_html=True)
+    if price_basis:
+        st.markdown(f'<div style="font-size:0.75rem;color:#888;text-align:center;margin-top:2px;">{price_basis}</div>', unsafe_allow_html=True)
 
     brand = data.get("brand_or_maker")
     model_name = data.get("model_name")
